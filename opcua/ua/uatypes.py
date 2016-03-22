@@ -99,6 +99,8 @@ def pack_uatype_array(uatype, value):
 
 def pack_uatype(uatype, value):
     if uatype in uatype2struct:
+        if value is None:
+            value = 0
         return uatype2struct[uatype].pack(value)
     elif uatype == "Null":
         return b''
@@ -341,6 +343,7 @@ class StatusCode(FrozenClass):
         return not self.__eq__(other)
 
 
+# FIXME: This is not according to standard, check Part 3, Page 59
 class NodeIdType(Enum):
     TwoByte = 0
     FourByte = 1
@@ -408,6 +411,21 @@ class NodeId(FrozenClass):
 
     def __hash__(self):
         return hash(self.__key())
+
+    def is_null(self):
+        ret = True
+        if self.NamespaceIndex != 0:
+            ret = False
+        if self.NodeIdType  in (NodeIdType.TwoByte, NodeIdType.FourByte, NodeIdType.Numeric):
+            if self.Identifier != 0:
+                ret = False
+        elif self.NodeIdType is NodeIdType.String:
+            if self.Identifier or self.Identifier != '':
+                ret = False
+        elif self.NodeIdType is NodeIdType.ByteString:
+            if not len(self.Identifier):
+                ret = False
+        return ret
 
     @staticmethod
     def from_string(string):
@@ -1146,10 +1164,14 @@ class BaseEvent(FrozenClass):
     __repr__ = __str__
 
 
+__default_idx = 2
 __nodeid_counter = 2000
 
 
-def generate_nodeid(idx):
+def generate_nodeid(idx=0):
     global __nodeid_counter
+    if not idx:
+        global __default_idx
+        idx = __default_idx
     __nodeid_counter += 1
     return NodeId(__nodeid_counter, idx)
