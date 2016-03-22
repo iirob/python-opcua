@@ -185,9 +185,9 @@ def _create_method(parent, nodeid, qname, callback, inputs, outputs):
     results[0].StatusCode.check()
     method = node.Node(parent.server, results[0].AddedNodeId)
     if inputs:
-        create_property(method, ua.generate_nodeid(qname.NamespaceIndex), ua.QualifiedName("InputArguments", 0), [_vtype_to_argument(vtype) for vtype in inputs])
+        create_property(method, ua.NodeId(), ua.QualifiedName("InputArguments", 0), [_vtype_to_argument(vtype) for vtype in inputs])
     if outputs:
-        create_property(method, ua.generate_nodeid(qname.NamespaceIndex), ua.QualifiedName("OutputArguments", 0), [_vtype_to_argument(vtype) for vtype in outputs])
+        create_property(method, ua.NodeId(), ua.QualifiedName("OutputArguments", 0), [_vtype_to_argument(vtype) for vtype in outputs])
     parent.server.add_method_callback(method.nodeid, callback)
     return results[0].AddedNodeId
 

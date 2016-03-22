@@ -872,9 +872,11 @@ class Variant(FrozenClass):
         return not self.__eq__(other)
 
     def _guess_type(self, val):
+        if isinstance(val, (list, tuple)):
+            error_val = val
         while isinstance(val, (list, tuple)):
             if len(val) == 0:
-                raise UaError("could not guess UA variable type")
+                raise UaError("could not guess UA type of variable {}".format(error_val))
             val = val[0]
         if val is None:
             return VariantType.Null
@@ -1162,16 +1164,3 @@ class BaseEvent(FrozenClass):
         s += ')'
         return s
     __repr__ = __str__
-
-
-__default_idx = 2
-__nodeid_counter = 2000
-
-
-def generate_nodeid(idx=0):
-    global __nodeid_counter
-    if not idx:
-        global __default_idx
-        idx = __default_idx
-    __nodeid_counter += 1
-    return NodeId(__nodeid_counter, idx)

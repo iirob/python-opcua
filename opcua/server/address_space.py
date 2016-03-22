@@ -182,14 +182,11 @@ class NodeManagementService(object):
 
         # Check if the null NodeId is given
         if item.RequestedNewNodeId.is_null():
-            print("Node is null");
-            nodedata = NodeData(ua.generate_nodeid(item.ParentNodeId.NamespaceIndex))
+            self.logger.debug("RequestedNewNodeId is null")
+            nodedata = NodeData(self._aspace.generate_nodeid(item.ParentNodeId.NamespaceIndex))
             item.BrowseName = ua.QualifiedName(item.BrowseName.Name, nodedata.nodeid.NamespaceIndex)
         else:
             nodedata = NodeData(item.RequestedNewNodeId)
-
-        print item.BrowseName
-        print nodedata
 
         if nodedata.nodeid in self._aspace:
             self.logger.warning("AddNodesItem: node already exists")
@@ -250,7 +247,7 @@ class NodeManagementService(object):
         return results
 
     def _delete_node(self, item, user):
-        if not user == User.Admin:
+        if user != User.Admin:
             return ua.StatusCode(ua.StatusCodes.BadUserAccessDenied)
 
         if item.NodeId not in self._aspace:
@@ -276,7 +273,7 @@ class NodeManagementService(object):
                     callback(handle, None, ua.StatusCode(ua.StatusCodes.BadNodeIdUnknown))
                     self._aspace.delete_datachange_callback(handle)
                 except Exception as ex:
-                    self.logger.exception("Error calling datachange callback %s, %s, %s", k, v, ex)
+                    self.logger.exception("Error calling delete node callback callback %s, %s, %s", nodedata, ua.AttributeIds.Value, ex)
 
     def add_references(self, refs, user=User.Admin):
         result = []
@@ -289,7 +286,7 @@ class NodeManagementService(object):
             return ua.StatusCode(ua.StatusCodes.BadSourceNodeIdInvalid)
         if addref.TargetNodeId not in self._aspace:
             return ua.StatusCode(ua.StatusCodes.BadTargetNodeIdInvalid)
-        if not user == User.Admin:
+        if user != User.Admin:
             return ua.StatusCode(ua.StatusCodes.BadUserAccessDenied)
         rdesc = ua.ReferenceDescription()
         rdesc.ReferenceTypeId = addref.ReferenceTypeId
@@ -316,20 +313,20 @@ class NodeManagementService(object):
             return ua.StatusCode(ua.StatusCodes.BadSourceNodeIdInvalid)
         if item.TargetNodeId not in self._aspace:
             return ua.StatusCode(ua.StatusCodes.BadTargetNodeIdInvalid)
-        if not user == User.Admin:
+        if user != User.Admin:
             return ua.StatusCode(ua.StatusCodes.BadUserAccessDenied)
 
         for rdesc in self._aspace[item.SourceNodeId].references:
             if rdesc.NodeId is item.TargetNodeId:
                 if rdesc.RefrenceTypeId != item.RefrenceTypeId:
-                    return ua.StatusCode(ua.StatusCode.BadReferenceTypeInvalid)
+                    return ua.StatusCode(ua.StatusCodes.BadReferenceTypeIdInvalid)
                 if rdesc.IsForward == item.IsForward or item.DeleteBidirectional:
                     self._aspace[item.SourceNodeId].references.remove(rdesc)
 
         for rdesc in self._aspace[item.TargetNodeId].references:
             if rdesc.NodeId is item.SourceNodeId:
                 if rdesc.RefrenceTypeId != item.RefrenceTypeId:
-                    return ua.StatusCode(ua.StatusCode.BadReferenceTypeInvalid)
+                    return ua.StatusCode(ua.StatusCodes.BadReferenceTypeIdInvalid)
                 if rdesc.IsForward == item.IsForward or item.DeleteBidirectional:
                     self._aspace[item.SourceNodeId].references.remove(rdesc)
 
@@ -413,6 +410,8 @@ class AddressSpace(object):
         self._lock = RLock()  # FIXME: should use multiple reader, one writter pattern
         self._datachange_callback_counter = 200
         self._handle_to_attribute_map = {}
+        self._default_idx = 2
+        self._nodeid_counter = 2000
 
     def __getitem__(self, nodeid):
         with self._lock:
@@ -429,6 +428,12 @@ class AddressSpace(object):
     def __delitem__(self, nodeid):
         with self._lock:
             self._nodes.__delitem__(nodeid)
+
+    def generate_nodeid(self, idx=0):
+        if not idx:
+            idx = self._default_idx
+        self._nodeid_counter += 1
+        return ua.NodeId(self._nodeid_counter, idx)
 
     def keys(self):
         with self._lock:
